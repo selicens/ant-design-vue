@@ -84,6 +84,15 @@ const Preview = defineComponent({
       y: number;
     }>(initialPosition);
 
+    const mousePosition = shallowRef({ x: 0, y: 0 });
+
+    const updateMousePosition = (e: MouseEvent) => {
+      mousePosition.value = {
+        x: e.pageX,
+        y: e.pageY,
+      };
+    };
+
     const onClose = () => emit('close');
     const imgRef = shallowRef<HTMLImageElement>();
     const originPositionRef = reactive<{
@@ -113,6 +122,8 @@ const Preview = defineComponent({
       () => isPreviewGroup.value && previewGroupCount.value >= 1,
     );
     const lastWheelZoomDirection = shallowRef({ wheelDirection: 0 });
+    const lastZoomPosition = shallowRef({ x: 0, y: 0 });
+    const hasWheelZoomed = shallowRef(false);
 
     const onAfterClose = () => {
       scale.value = 1;
@@ -120,27 +131,118 @@ const Preview = defineComponent({
       flip.x = 1;
       flip.y = 1;
       setPosition(initialPosition);
+      hasWheelZoomed.value = false;
+      lastZoomPosition.value = { x: 0, y: 0 };
       emit('afterClose');
     };
 
-    const onZoomIn = isWheel => {
-      if (!isWheel) {
-        scale.value++;
-      } else {
-        scale.value += 0.5;
+    const dispatchZoomChange = (
+      ratio: number,
+      isWheel: boolean,
+      centerX?: number,
+      centerY?: number,
+    ) => {
+      const imgElement = imgRef.value;
+      if (!imgElement) return;
+
+      // 获取图片的尺寸和位置信息
+      const { offsetWidth, offsetHeight, offsetLeft, offsetTop } = imgElement;
+
+      // 计算新的缩放比例
+      let newRatio = ratio;
+      let newScale = scale.value * ratio;
+      if (newScale > maxScale) {
+        newScale = maxScale;
+        newRatio = maxScale / scale.value;
+      } else if (newScale < minScale) {
+        // 对于滚轮缩放，允许缩小到最小比例
+        newScale = minScale;
+        newRatio = minScale / scale.value;
       }
 
-      setPosition(initialPosition);
-    };
-    const onZoomOut = isWheel => {
-      if (scale.value > 1) {
-        if (!isWheel) {
-          scale.value--;
-        } else {
-          scale.value -= 0.5;
+      // 确定缩放中心点
+      const mergedCenterX = centerX ?? window.innerWidth / 2;
+      const mergedCenterY = centerY ?? window.innerHeight / 2;
+
+      const diffRatio = newRatio - 1;
+      // 基于图片尺寸计算偏移
+      const diffImgX = diffRatio * offsetWidth * 0.5;
+      const diffImgY = diffRatio * offsetHeight * 0.5;
+      // 计算点击位置相对于图片边缘的偏移
+      const diffOffsetLeft = diffRatio * (mergedCenterX - position.x - offsetLeft);
+      const diffOffsetTop = diffRatio * (mergedCenterY - position.y - offsetTop);
+      // 计算最终位置
+      let newX = position.x - (diffOffsetLeft - diffImgX);
+      let newY = position.y - (diffOffsetTop - diffImgY);
+
+      // 当缩小到原始大小时，如果图片小于窗口，则居中显示
+      if (ratio < 1 && newScale === 1) {
+        const mergedWidth = offsetWidth * newScale;
+        const mergedHeight = offsetHeight * newScale;
+        const clientWidth = window.innerWidth;
+        const clientHeight = window.innerHeight;
+        if (mergedWidth <= clientWidth && mergedHeight <= clientHeight) {
+          newX = 0;
+          newY = 0;
+          // 重置滚轮缩放状态
+          if (!isWheel) {
+            hasWheelZoomed.value = false;
+            lastZoomPosition.value = { x: 0, y: 0 };
+          }
         }
       }
-      setPosition(initialPosition);
+
+      // 更新缩放比例和位置
+      scale.value = newScale;
+      setPosition({
+        x: newX,
+        y: newY,
+      });
+    };
+
+    const onZoomIn = (isWheel = false) => {
+      if (scale.value >= maxScale) {
+        return;
+      }
+
+      if (isWheel) {
+        // 使用鼠标位置作为缩放中心点
+        dispatchZoomChange(1.5, true, mousePosition.value.x, mousePosition.value.y);
+        // 记录最后一次滚轮缩放的位置
+        lastZoomPosition.value = { x: mousePosition.value.x, y: mousePosition.value.y };
+        hasWheelZoomed.value = true;
+      } else {
+        // 按钮缩放：如果之前使用过滚轮，则使用最后的滚轮位置，否则使用中心点
+        if (hasWheelZoomed.value) {
+          dispatchZoomChange(2, false, lastZoomPosition.value.x, lastZoomPosition.value.y);
+        } else {
+          dispatchZoomChange(2, false);
+        }
+      }
+    };
+
+    const onZoomOut = (isWheel = false) => {
+      if (scale.value <= minScale) {
+        // 当缩小到最小比例时，重置滚轮缩放状态
+        hasWheelZoomed.value = false;
+        lastZoomPosition.value = { x: 0, y: 0 };
+        return;
+      }
+
+      if (isWheel) {
+        // 使用鼠标位置作为缩放中心点
+        dispatchZoomChange(0.667, true, mousePosition.value.x, mousePosition.value.y);
+        // 记录最后一次滚轮缩放的位置
+        lastZoomPosition.value = { x: mousePosition.value.x, y: mousePosition.value.y };
+        hasWheelZoomed.value = true;
+      } else {
+        // 按钮缩放：如果之前使用过滚轮，则使用最后的滚轮位置，否则使用中心点
+        if (hasWheelZoomed.value) {
+          dispatchZoomChange(0.5, false, lastZoomPosition.value.x, lastZoomPosition.value.y);
+        } else {
+          dispatchZoomChange(0.5, false);
+        }
+      }
     };
 
     const onRotateRight = () => {
@@ -185,33 +287,33 @@ const Preview = defineComponent({
     const tools = [
       {
         icon: flipY,
-        onClick: onFlipY,
+        onClick: () => onFlipY(),
         type: 'flipY',
       },
       {
         icon: flipX,
-        onClick: onFlipX,
+        onClick: () => onFlipX(),
         type: 'flipX',
       },
       {
         icon: rotateLeft,
-        onClick: onRotateLeft,
+        onClick: () => onRotateLeft(),
         type: 'rotateLeft',
       },
       {
         icon: rotateRight,
-        onClick: onRotateRight,
+        onClick: () => onRotateRight(),
         type: 'rotateRight',
       },
       {
         icon: zoomOut,
-        onClick: onZoomOut,
+        onClick: () => onZoomOut(),
         type: 'zoomOut',
         disabled: computed(() => scale.value === minScale),
       },
       {
         icon: zoomIn,
-        onClick: onZoomIn,
+        onClick: () => onZoomIn(),
         type: 'zoomIn',
         disabled: computed(() => scale.value === maxScale),
       },
@@ -252,6 +354,7 @@ const Preview = defineComponent({
     };
 
     const onMouseMove: MouseEventHandler = event => {
+      updateMousePosition(event);
       if (props.visible && isMoving.value) {
         setPosition({
           x: event.pageX - originPositionRef.deltaX,
@@ -304,9 +407,6 @@ const Preview = defineComponent({
 
           const onMouseUpListener = addEventListener(window, 'mouseup', onMouseUp, false);
           const onMouseMoveListener = addEventListener(window, 'mousemove', onMouseMove, false);
-          const onScrollWheelListener = addEventListener(window, 'wheel', onWheelMove, {
-            passive: false,
-          });
           const onKeyDownListener = addEventListener(window, 'keydown', onKeyDown, false);
 
           try {
@@ -329,7 +429,6 @@ const Preview = defineComponent({
           removeListeners = () => {
             onMouseUpListener.remove();
             onMouseMoveListener.remove();
-            onScrollWheelListener.remove();
             onKeyDownListener.remove();
 
             /* istanbul ignore next */
@@ -396,6 +495,7 @@ const Preview = defineComponent({
               <img
                 onMousedown={onMouseDown}
                 onDblclick={onDoubleClick}
+                onWheel={onWheelMove}
                 ref={imgRef}
                 class={`${props.prefixCls}-img`}
                 src={combinationSrc.value}
