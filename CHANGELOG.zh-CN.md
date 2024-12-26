@@ -10,6 +10,22 @@
 
 ---
 
+## 4.2.6
+
+- 🐞 修复 Modal 组件在 chrome 下，aria-hidden 报错问题 [#7823](https://github.com/vueComponent/ant-design-vue/issues/7823)
+- 🐞 修复 Safari 下自带输入法 input 组件输入中文时，自动填写小数点问题 [#7918](https://github.com/vueComponent/ant-design-vue/issues/7918)
+- 🐞 修复 InputNumber 组件 disabled 样式问题 [#7776](https://github.com/vueComponent/ant-design-vue/issues/7776)
+- 🐞 修复 Select 无法失焦问题 [#7819](https://github.com/vueComponent/ant-design-vue/issues/7819)
+
+## 4.2.5
+
+- 🐞 修复 Empty 组件内存泄漏问题
+- 🐞 修复 Image width & height 属性不生效问题
+
+## 4.2.4
+
+- 🐞 修复 Wave 内存泄漏问题
+
 ## 4.2.3
 
 - 🌟 TourStep 自定义 Button，支持函数 children [#7628](https://github.com/vueComponent/ant-design-vue/pull/7628)
