@@ -18,14 +18,14 @@ export type TimeUnitColumnProps = {
   onSelect?: (value: number) => void;
 };
 
-export default defineComponent<TimeUnitColumnProps>({
+export default defineComponent({
   name: 'TimeUnitColumn',
-  props: ['prefixCls', 'units', 'onSelect', 'value', 'active', 'hideDisabledOptions'] as any,
+  props: ['prefixCls', 'units', 'onSelect', 'value', 'active', 'hideDisabledOptions'],
   setup(props) {
     const { open } = useInjectPanel();
 
     const ulRef = shallowRef<HTMLElement>(null);
-    const liRefs = ref<Map<number, HTMLElement | null>>(new Map());
+    const liRefs = ref(new Map<number, HTMLElement | null>());
     const scrollRef = ref<Function>();
 
     watch(

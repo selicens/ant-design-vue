@@ -1,7 +1,7 @@
 import classNames from '../../_util/classNames';
-import { filterEmpty, flattenChildren, isValidElement } from '../../_util/props-util';
+import { filterEmpty, findDOMNode, flattenChildren, isValidElement } from '../../_util/props-util';
 import type { CSSProperties, VNodeArrayChildren } from 'vue';
-import { Text, computed, defineComponent, isVNode } from 'vue';
+import { watch, shallowRef, Text, computed, defineComponent, isVNode } from 'vue';
 
 import type {
   DataIndex,
@@ -24,6 +24,7 @@ import { warning } from '../../vc-util/warning';
 import type { MouseEventHandler } from '../../_util/EventInterface';
 import eagerComputed from '../../_util/eagerComputed';
 import { customRenderSlot } from '../../_util/vnode';
+import { addClass, removeClass } from '../../vc-util/Dom/class';
 
 /** Check if cell is in hover range */
 function inHoverRange(cellStartRow: number, cellRowSpan: number, startRow: number, endRow: number) {
@@ -76,7 +77,7 @@ export interface CellProps<RecordType = DefaultRecordType> {
 
   transformCellText?: TransformCellText<RecordType>;
 }
-export default defineComponent<CellProps>({
+export default defineComponent({
   name: 'Cell',
   props: [
     'prefixCls',
@@ -103,7 +104,7 @@ export default defineComponent<CellProps>({
     'column',
     'cellType',
     'transformCellText',
-  ] as any,
+  ],
   setup(props, { slots }) {
     const contextSlots = useInjectSlots();
     const { onHover, startRow, endRow } = useInjectHover();
@@ -157,6 +158,17 @@ export default defineComponent<CellProps>({
         return vnode;
       }
     };
+
+    const hoverRef = shallowRef(null);
+    watch([hovering, () => props.prefixCls, hoverRef], () => {
+      const cellDom = findDOMNode(hoverRef.value);
+      if (!cellDom) return;
+      if (hovering.value) {
+        addClass(cellDom, `${props.prefixCls}-cell-row-hover`);
+      } else {
+        removeClass(cellDom, `${props.prefixCls}-cell-row-hover`);
+      }
+    });
     return () => {
       const {
         prefixCls,
@@ -306,7 +318,7 @@ export default defineComponent<CellProps>({
 
       // ====================== Render ======================
       let title: string;
-      const ellipsisConfig: CellEllipsisType = ellipsis === true ? { showTitle: true } : ellipsis;
+      const ellipsisConfig = ellipsis === true ? { showTitle: true } : ellipsis;
       if (ellipsisConfig && (ellipsisConfig.showTitle || rowType === 'header')) {
         if (typeof childNode === 'string' || typeof childNode === 'number') {
           title = childNode.toString();
@@ -334,7 +346,6 @@ export default defineComponent<CellProps>({
             [`${cellPrefixCls}-with-append`]: appendNode,
             [`${cellPrefixCls}-fix-sticky`]:
               (isFixLeft || isFixRight) && isSticky && supportSticky.value,
-            [`${cellPrefixCls}-row-hover`]: !cellProps && hovering.value,
           },
           additionalProps.class,
           cellClassName,
@@ -347,7 +358,7 @@ export default defineComponent<CellProps>({
       };
 
       return (
-        <Component {...componentProps}>
+        <Component {...componentProps} ref={hoverRef}>
           {appendNode}
           {childNode}
           {slots.dragHandle?.()}

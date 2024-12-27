@@ -171,7 +171,13 @@ export default defineComponent({
       if (childNode.length > 1) {
         childNode = <div class={`${prefixCls}-content`}>{childNode}</div>;
       }
-      const mergedClassName = classNames(prefixCls, attrs.class, alignedClassName.value);
+
+      const mergedClassName = classNames(
+        prefixCls,
+        attrs.class,
+        alignedClassName.value,
+        !props.arrow && `${prefixCls}-arrow-hidden`,
+      );
       const hasAnimate = visible.value || !props.visible;
       const transitionProps = hasAnimate ? getTransitionProps(motion.value.name, motion.value) : {};
 
@@ -190,7 +196,7 @@ export default defineComponent({
                   ref={alignRef}
                   monitorWindowResize
                   disabled={alignDisabled.value}
-                  align={align}
+                  align={align as any}
                   onAlign={onInternalAlign}
                   v-slots={{
                     default: () => (
@@ -198,11 +204,11 @@ export default defineComponent({
                         class={mergedClassName}
                         onMouseenter={onMouseenter}
                         onMouseleave={onMouseleave}
-                        onMousedown={withModifiers(onMousedown, ['capture'])}
+                        onMousedown={withModifiers(onMousedown, ['capture'] as any)}
                         {...{
                           [supportsPassive ? 'onTouchstartPassive' : 'onTouchstart']: withModifiers(
                             onTouchstart,
-                            ['capture'],
+                            ['capture'] as any,
                           ),
                         }}
                         style={mergedStyle}
