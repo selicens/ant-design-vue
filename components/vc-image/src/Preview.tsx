@@ -88,8 +88,8 @@ const Preview = defineComponent({
 
     const updateMousePosition = (e: MouseEvent) => {
       mousePosition.value = {
-        x: e.pageX,
-        y: e.pageY,
+        x: e.clientX,
+        y: e.clientY,
       };
     };
 
@@ -144,10 +144,8 @@ const Preview = defineComponent({
     ) => {
       const imgElement = imgRef.value;
       if (!imgElement) return;
-
       // 获取图片的尺寸和位置信息
       const { offsetWidth, offsetHeight, offsetLeft, offsetTop } = imgElement;
-
       // 计算新的缩放比例
       let newRatio = ratio;
       let newScale = scale.value * ratio;
@@ -201,10 +199,12 @@ const Preview = defineComponent({
     };
 
     const onZoomIn = (isWheel = false) => {
+      if (typeof isWheel !== 'boolean') {
+        isWheel = false;
+      }
       if (scale.value >= maxScale) {
         return;
       }
-
       if (isWheel) {
         // 使用鼠标位置作为缩放中心点
         dispatchZoomChange(1.5, true, mousePosition.value.x, mousePosition.value.y);
@@ -222,6 +222,9 @@ const Preview = defineComponent({
     };
 
     const onZoomOut = (isWheel = false) => {
+      if (typeof isWheel !== 'boolean') {
+        isWheel = false;
+      }
       if (scale.value <= minScale) {
         // 当缩小到最小比例时，重置滚轮缩放状态
         hasWheelZoomed.value = false;
@@ -346,8 +349,8 @@ const Preview = defineComponent({
       event.preventDefault();
       // Without this mask close will abnormal
       event.stopPropagation();
-      originPositionRef.deltaX = event.pageX - position.x;
-      originPositionRef.deltaY = event.pageY - position.y;
+      originPositionRef.deltaX = event.clientX - position.x;
+      originPositionRef.deltaY = event.clientY - position.y;
       originPositionRef.originX = position.x;
       originPositionRef.originY = position.y;
       isMoving.value = true;
@@ -357,8 +360,8 @@ const Preview = defineComponent({
       updateMousePosition(event);
       if (props.visible && isMoving.value) {
         setPosition({
-          x: event.pageX - originPositionRef.deltaX,
-          y: event.pageY - originPositionRef.deltaY,
+          x: event.clientX - originPositionRef.deltaX,
+          y: event.clientY - originPositionRef.deltaY,
         });
       }
     };
@@ -398,6 +401,22 @@ const Preview = defineComponent({
 
     let removeListeners = () => {};
     onMounted(() => {
+      watch(
+        () => props.visible,
+        visible => {
+          if (visible) {
+            // 重置所有状态到初始值
+            scale.value = 1;
+            rotate.value = 0;
+            flip.x = 1;
+            flip.y = 1;
+            setPosition(initialPosition);
+            hasWheelZoomed.value = false;
+            lastZoomPosition.value = { x: 0, y: 0 };
+          }
+        },
+      );
+
       watch(
         [() => props.visible, isMoving],
         () => {
